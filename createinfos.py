@@ -11,14 +11,15 @@ from os.path import isfile, join, splitext, exists
 def main(argv):
 	# Set defaults
 	filePath = join(os.getcwd(), 'bezels')
-	skipMode = True
+	skipMode = False
 	debugMode = False
 	verbose = False
+	opacity = 0.7
 
 	# Command Line options
 	# v = verbose, d = debug, p = file path
 	try:
-		opts, args = getopt.getopt(argv, '?vsdp:', ['help', 'verbose','path='])
+		opts, args = getopt.getopt(argv, '?vsdp:o:', ['help', 'skip', 'debug', 'verbose','path=', 'opacity='])
 	except getopt.GetoptError:
 		print('Invalid command line option. Use -? or --help to see available options.')
 		sys.exit()
@@ -44,12 +45,21 @@ def main(argv):
 				sys.exit()
 			if verbose:
 				print('File path set to {}'.format(filePath))
+		elif opt in ['-o', '--opacity']:
+			opacity = float(arg)
+			if opacity <= 0 or opacity > 1:
+				print('Opacity must be greater than 0 and no higher than 1.')
+				sys.exit()
+			if verbose:
+				print('Opacity set to {}'.format(str(opacity)))
 		elif opt in ['-?', '--help']:
 			print('Available command line options:')
 			print('-?; --help:                   Shows this information.')
 			print('-v; --verbose:                Shows additional logging information when running.')
 			print('-s; --skip:                   Skip files with existing info')
 			print('-d; --debug:                  Saves alpha mask images of failed bezels to a Debug folder')
+			print('-o; --opacity:                Sets the opacity, must be higher than 0 and no higher than 1')
+			print('								 1 is fully opaque, smaller numbers are more transparent, the default is 0.7.')
 			print('-p [folder]; --path [folder]: Set the folder of bezels to process. This can be a subfolder or a full path.')
 			print('                              If not specified, the default is {}'.format(filePath))
 			sys.exit()
@@ -115,7 +125,7 @@ def main(argv):
 								infoFile.write(' "left":{},\n'.format(cc_obj.left))
 								infoFile.write(' "bottom":{},\n'.format(bezelHeight - (cc_obj.top + cc_obj.height)))
 								infoFile.write(' "right":{},\n'.format(bezelWidth - (cc_obj.left + cc_obj.width)))
-								infoFile.write(' "opacity":1.0,\n')
+								infoFile.write(' "opacity":{},\n'.format(str(opacity)))
 								infoFile.write(' "messagex":0.22,\n')
 								infoFile.write(' "messagey":0.12,\n')
 								infoFile.write('}')
