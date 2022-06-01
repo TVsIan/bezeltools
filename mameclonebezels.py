@@ -125,7 +125,7 @@ def main(argv):
 	# Check files against the XML data
 	for f in fileList:
 		currentFile += 1
-		if f.endswith('.png') or f.endswith('.info'):
+		if splitext(f)[1] in ['.png', '.info', '.lay', '.zip']:
 			copyCount = 0
 			deletedFile = False
 			movedFile = False
