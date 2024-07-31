@@ -7,6 +7,7 @@ import shutil
 from wand.image import Image
 from wand.color import Color
 from os.path import isfile, join, splitext, exists
+from zipfile import ZipFile
 from tkinter import filedialog
 
 def main(argv):
@@ -15,12 +16,11 @@ def main(argv):
 	skipMode = False
 	debugMode = False
 	verbose = False
-	opacity = 0.7
 
 	# Command Line options
 	# v = verbose, d = debug, p = file path
 	try:
-		opts, args = getopt.getopt(argv, '?vsdo:p:u', ['help', 'skip', 'debug', 'verbose','opacity=','path=','ui'])
+		opts, args = getopt.getopt(argv, '?vsdp:u', ['help', 'skip', 'debug', 'verbose','path=','ui'])
 	except getopt.GetoptError:
 		print('Invalid command line option. Use -? or --help to see available options.')
 		sys.exit()
@@ -51,22 +51,13 @@ def main(argv):
 				print('Path {} does not exist!'.format(arg))
 				sys.exit()
 			if verbose:
-				print('File path set to {}'.format(filePath))
-		elif opt in ['-o', '--opacity']:
-			opacity = float(arg)
-			if opacity <= 0 or opacity > 1:
-				print('Opacity must be greater than 0 and no higher than 1.')
-				sys.exit()
-			if verbose:
-				print('Opacity set to {}'.format(str(opacity)))
+				print('File path set to {}'.format(filePath))		
 		elif opt in ['-?', '--help']:
 			print('Available command line options:')
 			print('-?; --help:                   Shows this information')
 			print('-v; --verbose:                Shows additional logging information when running')
 			print('-s; --skip:                   Skip files with existing info')
-			print('-d; --debug:                  Saves alpha mask images of failed bezels to a Debug folder')
-			print('-o; --opacity:                Sets the opacity, must be higher than 0 and no higher than 1')
-			print('								 1 is fully opaque, smaller numbers are more transparent, the default is 0.7')
+			print('-d; --debug:                  Saves alpha mask images of failed bezels to a Debug folder')			
 			print('-p [folder]; --path [folder]: Set the folder of bezels to process. This can be a subfolder or a full path')
 			print('-u; --ui:							 Use folder selection UI')
 			print('                              If not specified, the default is {}'.format(filePath))
@@ -94,7 +85,7 @@ def main(argv):
 		infoCreated = False
 		skippedFile = False
 		alphaError = False
-		if exists(join(filePath, splitext(f)[0] + '.info')) and skipMode:
+		if (exists(join(filePath, splitext(f)[0] + '.zip')) or exists(join(filePath, splitext(f)[0] + '.lay'))) and skipMode:
 			skipCount += 1
 			skippedFile = True
 		else:
@@ -128,35 +119,45 @@ def main(argv):
 						else:
 							if verbose:
 								print('Found transparent area at {} with size {}'.format(cc_obj.offset, cc_obj.size))
-							infoFilename = splitext(f)[0] + '.info'
+							infoFilename = splitext(f)[0] + '.lay'
 							infoFile = open(join(filePath, infoFilename), "w")
-							infoFile.write('{\n')
-							infoFile.write(' "width":{},\n'.format(bezelWidth))
-							infoFile.write(' "height":{},\n'.format(bezelHeight))
-							infoFile.write(' "top":{},\n'.format(cc_obj.top))
-							infoFile.write(' "left":{},\n'.format(cc_obj.left))
-							infoFile.write(' "bottom":{},\n'.format(bezelHeight - (cc_obj.top + cc_obj.height)))
-							infoFile.write(' "right":{},\n'.format(bezelWidth - (cc_obj.left + cc_obj.width)))
-							infoFile.write(' "opacity":{},\n'.format(str(opacity)))
-							infoFile.write(' "messagex":0.22,\n')
-							infoFile.write(' "messagey":0.12,\n')
-							infoFile.write('}')
+							infoFile.write('<?xml version="1.0"?>\n')
+							infoFile.write(f'<!-- {splitext(f)[0]}.lay -->\n')
+							infoFile.write('\n')
+							infoFile.write('<mamelayout version="2">\n')
+							infoFile.write('\t<element name="bezel">\n')
+							infoFile.write(f'\t\t<image file="{splitext(f)[0]}.png" />\n')
+							infoFile.write('\t</element>\n')
+							infoFile.write('\t<view name="Upright Artwork">\n')
+							infoFile.write('\t\t<screen index="0">\n')
+							infoFile.write(f'\t\t\t<bounds x="{cc_obj.left}" y="{cc_obj.top}" width="{cc_obj.width}" height="{cc_obj.height}" />\n')
+							infoFile.write('\t\t</screen>\n')
+							infoFile.write('\t\t<element ref="bezel">\n')
+							infoFile.write(f'\t\t\t<bounds x="0" y="0" width="{bezelWidth}" height="{bezelHeight}" />\n')
+							infoFile.write('\t\t</element>\n')
+							infoFile.write('\t</view>\n')
+							infoFile.write('</mamelayout>\n')
+							infoFile.write('\n')
+							infoFile.write('<!-- Created by Bezel Tools script - https://github.com/TVsIan/bezeltools -->\n')
 							infoFile.close()
 							if verbose:
 								print('Created {} for image {}'.format(infoFilename, f))
 							infoCreated = True
+							with ZipFile(join(filePath, splitext(f)[0] + '.zip'), 'w') as mameArtFile:
+								mameArtFile.write(join(filePath, splitext(f)[0] + '.png'), splitext(f)[0] + '.png')
+								mameArtFile.write(join(filePath, splitext(f)[0] + '.lay'), splitext(f)[0] + '.lay')
 			if infoCreated:
 				bezelCount += 1
-				print('Done! Created .info file.')
+				print('Done! Created .lay file and zipped.')
 			elif skippedFile:
-				print('Skipped! .info file already exists.')
+				print('Skipped! .lay file already exists.')
 			elif alphaError:
 				if debugMode:
-					print('Done with Errors! .info file created, but multiple transparent areas found. Alpha mask saved.')
+					print('Done with Errors! .lay file created, but multiple transparent areas found. Alpha mask saved.')
 				else:
-					print('Done with Errors! .info file created, but multiple transparent areas found.')
+					print('Done with Errors! .lay file created, but multiple transparent areas found.')
 			else:
-				print('Error! No .info file created, no transparent area detected.')
+				print('Error! No .lay file created, no transparent area detected.')
 				if debugMode:
 					if not exists(debugPath):
 						os.makedirs(debugPath)
@@ -165,7 +166,7 @@ def main(argv):
 						print('Debug copy of alpha mask saved to {}'.format(join(debugPath, f)))
 
 	print('Processing completed!')
-	print('{} png files found, {} info files written, {} files skipped.'.format(pngCount, bezelCount, skipCount))
+	print('{} png files found, {} lay files written, {} files skipped.'.format(pngCount, bezelCount, skipCount))
 	if os.path.exists(join(filePath, "alphaMask.png")):
 		os.remove(join(filePath, "alphaMask.png"))
 		if verbose:
