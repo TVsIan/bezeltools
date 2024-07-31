@@ -139,7 +139,7 @@ def main(argv):
 							infoFile.write(' "right":{},\n'.format(bezelWidth - (cc_obj.left + cc_obj.width)))
 							infoFile.write(' "opacity":{},\n'.format(str(opacity)))
 							infoFile.write(' "messagex":0.22,\n')
-							infoFile.write(' "messagey":0.12,\n')
+							infoFile.write(' "messagey":0.12\n')
 							infoFile.write('}')
 							infoFile.close()
 							if verbose:
